@@ -10,7 +10,11 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(cors());
+app.use(cors({
+    origin: [
+        "https://mern-crud-frontend.vercel.app/"
+    ]
+}));
 app.use(morgan("dev"));
 
 const port = process.env.PORT || 3000;
