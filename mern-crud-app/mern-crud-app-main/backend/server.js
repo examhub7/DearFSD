@@ -13,7 +13,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cors({
       origin: [
     "http://localhost:5173",
-    "https://YOUR-VERCEL-DOMAIN.vercel.app"
+    "https://mern-crud-frontend.vercel.app/"
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
