@@ -10,116 +10,156 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(cors({
-      origin: [
-    "http://localhost:5173",
-    "https://mern-crud-frontend.vercel.app/"
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
+// Allowed origins for CORS
+const defaultOrigins = [
+  "https://mern-crud-frontend-theta.vercel.app",
+  "https://mern-crud-frontend-diplomaqx-9468.vercel.app",
+  "https://mern-crud-frontend.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
+
+const envFrontendUrl = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(",").map((url) => url.trim().replace(/\/+$/, ""))
+  : [];
+
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envFrontendUrl]));
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow non-browser requests (e.g., curl, Postman, health checks)
+      if (!origin) return callback(null, true);
+
+      const cleanOrigin = origin.replace(/\/+$/, "");
+      if (
+        allowedOrigins.includes(cleanOrigin) ||
+        /^https:\/\/mern-crud-frontend.*\.vercel\.app$/.test(cleanOrigin)
+      ) {
+        return callback(null, true);
+      }
+
+      return callback(null, false);
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 app.use(morgan("dev"));
 
 const port = process.env.PORT || 3000;
-const DEFAULT_MONGO_URI = "mongodb+srv://deepikaarugalla_db_user:CTwGuWP9yQWmDb3p@cluster0.wvbmzxj.mongodb.net";
-const mongoUri = process.env.MONGO_URI || DEFAULT_MONGO_URI;
+const mongoUri = process.env.MONGO_URI;
 const dbName = process.env.DB_NAME || "mernDB";
 
-// Connect to MongoDB
-const connectDB = async () => {
-    try {
-        await mongoose.connect(mongoUri, {
-            dbName: dbName,
-            serverSelectionTimeoutMS: 5000
-        });
-        console.log("MongoDB Connected Successfully");
-    } catch (error) {
-        console.error("MongoDB Connection Failed:", error.message);
-    }
+// Post schema and model
+const postSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true },
+    content: { type: String, required: true },
+  },
+  { timestamps: true }
+);
 
-    app.listen(port, "0.0.0.0", () => {
-        console.log(`Server running on port ${port}`);
-    });
-};
-
-  // Define the Post schema and model
-const postSchema = new mongoose.Schema({
-  title: String,
-  content: String,
-});
 const Post = mongoose.model("Post", postSchema);
 
-//CRUD operations for Blog Posts
+// CRUD operations for Blog Posts
+
 // Create a new post
 app.post("/api/v1/posts", async (req, res) => {
   try {
-    const post = new Post(req.body);
+    const { title, content } = req.body;
+    if (!title || !content) {
+      return res.status(400).json({ message: "Title and content are required" });
+    }
+    const post = new Post({ title, content });
     await post.save();
-    res.status(201).send({ message: "Post created successfully", data: post });
+    res.status(201).json({ message: "Post created successfully", data: post });
   } catch (err) {
-    res.status(400).send(err);
-  }
-});
-//Read all posts
-app.get("/api/v1/posts", async (req, res) => {
-  try {
-    const posts = await Post.find();
-    res
-      .status(200)
-      .send({ message: "Posts retrieved successfully", data: posts });
-  } catch (err) {
-    res.status(400).send(err);
+    res.status(400).json({ message: err.message || "Failed to create post" });
   }
 });
 
-//Read post by id
+// Read all posts
+app.get("/api/v1/posts", async (req, res) => {
+  try {
+    const posts = await Post.find().sort({ createdAt: -1 });
+    res.status(200).json({ message: "Posts retrieved successfully", data: posts });
+  } catch (err) {
+    res.status(400).json({ message: err.message || "Failed to retrieve posts" });
+  }
+});
+
+// Read post by id
 app.get("/api/v1/posts/:id", async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) {
-      return res.status(404).send({ message: "Post not found" });
+      return res.status(404).json({ message: "Post not found" });
     }
-    res
-      .status(200)
-      .send({ message: "Post retrieved successfully", data: post });
+    res.status(200).json({ message: "Post retrieved successfully", data: post });
   } catch (err) {
-    res.status(400).send(err);
+    res.status(400).json({ message: err.message || "Failed to retrieve post" });
   }
 });
 
-//Update post by id
+// Update post by id
 app.put("/api/v1/posts/:id", async (req, res) => {
   try {
-    const post = await Post.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
+    const { title, content } = req.body;
+    const post = await Post.findByIdAndUpdate(
+      req.params.id,
+      { title, content },
+      { new: true, runValidators: true }
+    );
     if (!post) {
-      return res.status(404).send({ message: "Post not found" });
+      return res.status(404).json({ message: "Post not found" });
     }
-    res.status(200).send({ message: "Post updated successfully", data: post });
+    res.status(200).json({ message: "Post updated successfully", data: post });
   } catch (err) {
-    res.status(400).send(err);
+    res.status(400).json({ message: err.message || "Failed to update post" });
   }
 });
-//Delete post by id
+
+// Delete post by id
 app.delete("/api/v1/posts/:id", async (req, res) => {
   try {
     const post = await Post.findByIdAndDelete(req.params.id);
     if (!post) {
-      return res.status(404).send({ message: "Post not found" });
+      return res.status(404).json({ message: "Post not found" });
     }
-    res.status(200).send({ message: "Post deleted successfully", data: post });
+    res.status(200).json({ message: "Post deleted successfully", data: post });
   } catch (err) {
-    res.status(400).send(err);
+    res.status(400).json({ message: err.message || "Failed to delete post" });
   }
 });
-//Test route
+
+// Health check route
 app.get("/", (req, res) => {
-  res.send({ message: "Welcome to Express Test" });
+  res.status(200).json({ message: "Welcome to Express Test", status: "healthy" });
 });
-//Start the server
-/*app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
-});
-*/
-connectDB();
+
+// Connect to MongoDB and start the server
+const startServer = async () => {
+  if (!mongoUri) {
+    console.error("MongoDB Connection Failed: MONGO_URI environment variable is not defined");
+    process.exit(1);
+  }
+
+  try {
+    await mongoose.connect(mongoUri, {
+      dbName: dbName,
+      serverSelectionTimeoutMS: 5000,
+    });
+    console.log("MongoDB Connected Successfully");
+
+    app.listen(port, "0.0.0.0", () => {
+      console.log(`Server running on port ${port}`);
+    });
+  } catch (error) {
+    console.error("MongoDB Connection Failed:", error.message);
+    process.exit(1);
+  }
+};
+
+startServer();

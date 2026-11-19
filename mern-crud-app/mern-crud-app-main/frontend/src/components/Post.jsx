@@ -1,10 +1,10 @@
-
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const API_URL = import.meta.env.VITE_API_URL;
+import API_URL from "../api";
 
 function Post({ post, onDelete }) {
   const navigate = useNavigate();
+  const [deleting, setDeleting] = useState(false);
 
   const handleEdit = () => {
     navigate(`/update-post/${post._id}`);
@@ -17,23 +17,25 @@ function Post({ post, onDelete }) {
 
     if (!confirmDelete) return;
 
+    setDeleting(true);
     try {
-      const response = await fetch(
-        `${API_URL}/api/v1/posts/${post._id}`,
-        {
-          method: "DELETE",
-        }
-      );
+      const response = await fetch(`${API_URL}/api/v1/posts/${post._id}`, {
+        method: "DELETE",
+      });
 
       if (!response.ok) {
-        throw new Error("Failed to delete post");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to delete post");
       }
 
-      onDelete(post._id);
-
+      if (typeof onDelete === "function") {
+        onDelete(post._id);
+      }
     } catch (error) {
       console.error("Delete error:", error);
-      alert("Unable to delete post. Please try again.");
+      alert(error.message || "Unable to delete post. Please try again.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -44,9 +46,13 @@ function Post({ post, onDelete }) {
       <div className="post-content">{post.content}</div>
 
       <div className="post-actions">
-        <button onClick={handleEdit}>Edit</button>
+        <button onClick={handleEdit} disabled={deleting}>
+          Edit
+        </button>
 
-        <button onClick={handleDelete}>Delete</button>
+        <button onClick={handleDelete} disabled={deleting}>
+          {deleting ? "Deleting..." : "Delete"}
+        </button>
       </div>
     </div>
   );

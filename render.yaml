@@ -112,11 +112,13 @@ services:
     plan: free
     rootDir: mern-crud-app/mern-crud-app-main/backend
     buildCommand: npm install
-    startCommand: node server.js
+    startCommand: npm start
     envVars:
       - key: PORT
         value: 10000
       - key: MONGO_URI
-        value: mongodb+srv://deepikaarugalla_db_user:CTwGuWP9yQWmDb3p@cluster0.wvbmzxj.mongodb.net
+        sync: false
       - key: DB_NAME
         value: mernDB
+      - key: FRONTEND_URL
+        value: https://mern-crud-frontend-theta.vercel.app
